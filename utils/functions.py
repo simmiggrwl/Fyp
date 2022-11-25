@@ -67,12 +67,12 @@ def load_args(filename):
         args = json.load(f)
 
     # Backwards compatibility
-    if 'data_distribution' not in args:
-        args['data_distribution'] = None
+    if 'data_dist' not in args:
+        args['data_dist'] = None
         probl, *dist = args['problem'].split("_")
         if probl == "op":
             args['problem'] = probl
-            args['data_distribution'] = dist[0]
+            args['data_dist'] = dist[0]
     return args
 
 

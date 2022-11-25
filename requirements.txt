@@ -1,0 +1,8 @@
+matplotlib==3.6.1
+ortools==9.0.9048
+tensorboard-logger==0.1.0
+torch==1.12.1
+tqdm==4.64.1
+k-means-constrained==0.7.2
+fuzzy-c-means==1.6.3
+scikit-learn==1.1.2

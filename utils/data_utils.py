@@ -1,11 +1,9 @@
 import os
-import math
 import torch
 import random
 import pickle
 import argparse
 import numpy as np
-from torch.utils.data import Dataset
 
 
 def set_seed(seed):
@@ -56,26 +54,3 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
-
-
-class ScenarioDataset(Dataset):
-    def __init__(self, path, graph_size, padding, device='cpu'):
-        super(ScenarioDataset, self).__init__()
-        self.path = path
-        self.graph_size = graph_size
-        self.samples = os.listdir(path)
-        self.padding = padding
-        self.device = device
-
-    def __getitem__(self, item):
-
-        # Load file
-        filename = os.path.join(self.path, str(item).zfill(self.padding) + '.pkl')
-        with open(filename, 'rb') as f:
-            sample = pickle.load(f)
-        for k, v in sample.items():
-            sample[k] = np.array(v, dtype=np.float32)
-        return sample
-
-    def __len__(self):
-        return len(self.samples)

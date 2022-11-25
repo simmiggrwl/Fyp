@@ -2,13 +2,11 @@ import os
 import time
 import math
 import torch
-import numpy as np
 from tqdm import tqdm
 from torch.nn import DataParallel
 from torch.utils.data import DataLoader
 
 from nets.attention_model import set_decode_type
-from utils.data_utils import ScenarioDataset
 from utils.log_utils import log_values
 from utils import move_to
 
@@ -17,26 +15,14 @@ def get_inner_model(model):
     return model.module if isinstance(model, DataParallel) else model
 
 
-def validate(model, opts):
-
-    # Load validation data for each graph size
-    graph_sizes = os.listdir(opts.val_dataset)
-    padding = math.floor(math.log(np.max(
-        [len(os.listdir(os.path.join(opts.val_dataset, g))) for g in graph_sizes]
-    ), 10)) + 1
-    for i, graph_size in enumerate(graph_sizes):
-        path = os.path.join(opts.val_dataset, graph_size)
-
-        # Load validation data for each epoch
-        val_dataset = ScenarioDataset(path, int(graph_size), padding, device=opts.device)
-        if i == 0:
-            cost = rollout(model, val_dataset, opts)
-        else:
-            cost = torch.cat((cost, rollout(model, val_dataset, opts)), dim=0)
-
-    # Output average cost
+def validate(model, dataset, opts):
+    # Validate
+    print('Validating...')
+    cost = rollout(model, dataset, opts)
     avg_cost = cost.mean()
-    print('Validation overall avg_cost: {} +- {}'.format(avg_cost, torch.std(cost) / math.sqrt(len(cost))))
+    print('Validation overall avg_cost: {} +- {}'.format(
+        avg_cost, torch.std(cost) / math.sqrt(len(cost))))
+
     return avg_cost
 
 
@@ -53,8 +39,7 @@ def rollout(model, dataset, opts):
     return torch.cat([
         eval_model_bat(bat)
         for bat
-        in tqdm(DataLoader(dataset, batch_size=opts.eval_batch_size, num_workers=opts.num_workers),
-                disable=opts.no_progress_bar)
+        in tqdm(DataLoader(dataset, batch_size=opts.eval_batch_size), disable=opts.no_progress_bar)
     ], 0)
 
 
@@ -78,51 +63,51 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
-def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, tb_logger, opts):
-    print("\nStart train epoch {}, lr={} for run {}".format(epoch, optimizer.param_groups[0]['lr'], opts.run_name))
+def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, val_dataset, problem, tb_logger, opts):
+    print("Start train epoch {}, lr={}".format(epoch, optimizer.param_groups[0]['lr']))
     step = epoch * (opts.epoch_size // opts.batch_size)
     start_time = time.time()
 
     if not opts.no_tensorboard:
         tb_logger.log_value('learnrate_pg0', optimizer.param_groups[0]['lr'], step)
 
+    # Generate new training data for each epoch
+    if os.path.isdir(opts.train_dataset):
+        from problems.op.problem_op import OPDatasetLarge
+        training_dataset = baseline.wrap_dataset(
+            OPDatasetLarge(filename=opts.train_dataset, distribution=opts.data_dist, num_depots=opts.num_depots)
+        )
+    else:
+        training_dataset = baseline.wrap_dataset(
+            problem.make_dataset(size=opts.graph_size, num_samples=opts.epoch_size, distribution=opts.data_dist,
+                                 num_agents=opts.num_agents, num_depots=opts.num_depots, max_length=opts.max_length,
+                                 filename=opts.train_dataset, cluster=opts.cluster)
+        )
+    training_dataloader = DataLoader(training_dataset, batch_size=opts.batch_size, num_workers=opts.num_workers)
+
     # Put model in train mode!
     model.train()
     set_decode_type(model, "sampling")
 
-    # Load training data for each graph size
-    graph_sizes = os.listdir(opts.train_dataset)
-    padding = math.floor(math.log(np.max(
-        [len(os.listdir(os.path.join(opts.train_dataset, g))) for g in graph_sizes]
-    ), 10)) + 1
-    for graph_size in graph_sizes:
-        print('Graph size = {}'.format(graph_size))
-        path = os.path.join(opts.train_dataset, graph_size)
-
-        # Load training data for each epoch
-        training_dataset = baseline.wrap_dataset(
-            ScenarioDataset(path, int(graph_size), padding, device=opts.device)
+    # Train one epoch
+    for batch_id, batch in enumerate(tqdm(training_dataloader, disable=opts.no_progress_bar)):
+        train_batch(
+            model,
+            optimizer,
+            baseline,
+            epoch,
+            batch_id,
+            step,
+            batch,
+            tb_logger,
+            opts
         )
-        training_dataloader = DataLoader(training_dataset, batch_size=opts.batch_size, num_workers=opts.num_workers)
-        for batch_id, batch in enumerate(tqdm(training_dataloader, disable=opts.no_progress_bar)):
-
-            train_batch(
-                model,
-                optimizer,
-                baseline,
-                epoch,
-                batch_id,
-                step,
-                batch,
-                tb_logger,
-                opts
-            )
-            step += 1
-
+        step += 1
     epoch_duration = time.time() - start_time
-    print("Finished epoch {}, took {} s\n".format(epoch, time.strftime('%H:%M:%S', time.gmtime(epoch_duration))))
+    print("Finished epoch {}, took {} s".format(epoch, time.strftime('%H:%M:%S', time.gmtime(epoch_duration))))
 
-    if (opts.checkpoint_epochs != 0 and epoch % opts.checkpoint_epochs == 0) or epoch == opts.n_epochs - 1:
+    # Save trained model
+    if (opts.checkpoint_epochs != 0 and epoch % opts.checkpoint_epochs == 0) or epoch == opts.epochs - 1:
         print('Saving model and state...')
         torch.save(
             {
@@ -135,11 +120,14 @@ def train_epoch(model, optimizer, baseline, lr_scheduler, epoch, tb_logger, opts
             os.path.join(opts.save_dir, 'epoch-{}.pt'.format(epoch))
         )
 
-    avg_reward = validate(model, opts)
+    # Validate
+    avg_reward = validate(model, val_dataset, opts)
 
+    # Tensorboard info
     if not opts.no_tensorboard:
         tb_logger.log_value('val_avg_reward', avg_reward, step)
 
+    # Update callback
     baseline.epoch_callback(model, epoch)
 
     # lr_scheduler should be called at end of epoch

@@ -18,7 +18,7 @@ def arguments(args=None):
     parser.add_argument('--seed', type=int, default=5, help='Random seed to use')
 
     # Model
-    parser.add_argument('--num_agents', type=int, default=4, help="Number of agents")
+    parser.add_argument('--num_agents', type=int, default=2, help="Number of agents")
     parser.add_argument('--num_depots', type=int, default=1, help="Number of depots. Options are 1 or 2. num_depots=1"
                         "means that the start and end depot are the same. num_depots=2 means that they are different")  # 2 depots is only supported for Attention on OP
     parser.add_argument('--load_path', help='Path to load model. Just indicate the directory where epochs are saved or'
@@ -30,7 +30,7 @@ def arguments(args=None):
     # Problem
     parser.add_argument('--problem', default='op', help="The problem to solve, default 'tsp'")
     parser.add_argument('--graph_size', type=int, default=20, help="The size of the problem graph")
-    parser.add_argument('--data_distribution', type=str, default='coop',
+    parser.add_argument('--data_dist', type=str, default='coop',
                         help='Data distribution to use during training. Options: coop, nocoop, const, dist, unif')
     parser.add_argument('--test_coop', type=str2bool, default=True,
                         help="For the OP with coop/nocoop distribution, set test_coop=True to see the multi-agent plot")
@@ -283,11 +283,11 @@ def plot_multitour(num_agents, tours, inputs, problem, model_name, data_dist='',
 
     # Initialize global plots
     fig1 = plt.figure(num_agents)
-    plt.xlim([-.05, .05])
-    plt.ylim([-.05, .05])
+    plt.xlim([-.05, 1.05])
+    plt.ylim([-.05, 1.05])
     fig2 = plt.figure(num_agents + 1)
-    plt.xlim([-.05, .05])
-    plt.ylim([-.05, .05])
+    plt.xlim([-.05, 1.05])
+    plt.ylim([-.05, 1.05])
 
     # Assign a color to each agent
     colors = assign_colors(num_agents + 2)
@@ -302,8 +302,8 @@ def plot_multitour(num_agents, tours, inputs, problem, model_name, data_dist='',
 
         # Initialize individual plots
         fig = plt.figure(agent)
-        plt.xlim([-.05, .05])
-        plt.ylim([-.05, .05])
+        plt.xlim([-.05, 1.05])
+        plt.ylim([-.05, 1.05])
 
         # Data
         loc = inputs[agent]['loc']
@@ -409,13 +409,13 @@ def main(opts):
 
     # Load problem
     problem = load_problem(opts.problem)
-    dataset = problem.make_dataset(size=opts.graph_size, num_samples=1, distribution=opts.data_distribution,
+    dataset = problem.make_dataset(size=opts.graph_size, num_samples=1, distribution=opts.data_dist,
                                    test_coop=opts.test_coop, num_agents=opts.num_agents, num_depots=opts.num_depots)
     inputs = dataset.data[0]
 
     # Apply baseline (OR-Tools, Compass, GA, Tsiligirides, Gurobi) instead of a trained model (Transformer, PN, GPN)
     if opts.baseline is not None:
-        if problem.NAME == 'op' and opts.data_distribution == 'coop' and opts.test_coop:
+        if problem.NAME == 'op' and opts.data_dist == 'coop' and opts.test_coop:
             tours, inputs_dict = [], {}
             for agent in range(opts.num_agents):
                 ds = dataset
@@ -424,7 +424,7 @@ def main(opts):
                 tours.append(tour)
                 inputs_dict[agent] = inp
             plot_multitour(opts.num_agents, tours, inputs_dict, problem.NAME, model_name,
-                           data_dist=opts.data_distribution)
+                           data_dist=opts.data_dist)
         else:
             tour, inputs, model_name = baselines(opts.baseline, problem, dataset, device)
 
@@ -448,7 +448,7 @@ def main(opts):
         model_name = 'GPN'
 
     # OP (coop)
-    if problem.NAME == 'op' and (opts.data_distribution == 'coop' or opts.data_distribution == 'nocoop') and opts.test_coop:
+    if problem.NAME == 'op' and (opts.data_dist == 'coop' or opts.data_dist == 'nocoop') and opts.test_coop:
         tours = []
         for i in range(opts.num_agents):
             for k, v in inputs[i].items():
@@ -457,7 +457,7 @@ def main(opts):
             tours.append(tour.cpu().detach().numpy().squeeze())
             for k, v in inputs[i].items():
                 inputs[i][k] = v.cpu().detach().numpy().squeeze()
-        plot_multitour(opts.num_agents, tours, inputs, problem.NAME, model_name, data_dist=opts.data_distribution,
+        plot_multitour(opts.num_agents, tours, inputs, problem.NAME, model_name, data_dist=opts.data_dist,
                        num_depots=opts.num_depots)
         return
 
@@ -483,7 +483,7 @@ def main(opts):
 
     # Print/Plot results
     print(np.insert(tour, 0, 0, axis=0))
-    plot_tour(tour, inputs, problem.NAME, model_name, data_dist=opts.data_distribution, num_depots=opts.num_depots)
+    plot_tour(tour, inputs, problem.NAME, model_name, data_dist=opts.data_dist, num_depots=opts.num_depots)
 
 
 if __name__ == "__main__":

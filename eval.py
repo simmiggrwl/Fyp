@@ -1,17 +1,18 @@
+import os
+import time
 import math
 import torch
-import os
 import argparse
-import numpy as np
 import itertools
+import numpy as np
+
 from tqdm import tqdm
+from datetime import timedelta
+from torch.utils.data import DataLoader
+
 from utils import load_model, move_to
 from utils.data_utils import save_dataset
-from torch.utils.data import DataLoader
-import time
-from datetime import timedelta
 from utils.functions import parse_softmax_temperature
-from utils.data_utils import ScenarioDataset
 mp = torch.multiprocessing.get_context('spawn')
 
 
@@ -39,69 +40,70 @@ def get_best(sequences, cost, ids=None, batch_size=None):
     return [sequences[i] if i >= 0 else None for i in result], [cost[i] if i >= 0 else math.inf for i in result]
 
 
+def eval_dataset_mp(args):
+    (dataset_path, width, softmax_temp, opts, i, num_processes) = args
+
+    model, _ = load_model(opts.model)
+    val_size = opts.val_size // num_processes
+    dataset = model.problem.make_dataset(filename=dataset_path, num_samples=val_size, offset=opts.offset + val_size * i,
+                                         ratio=opts.ratio, num_agents=opts.num_agents)
+    device = torch.device("cuda:{}".format(i))
+
+    return _eval_dataset(model, dataset, width, softmax_temp, opts, device)
+
+
 def eval_dataset(dataset_path, width, softmax_temp, opts):
     # Even with multiprocessing, we load the model here since it contains the name where to write results
     model, args = load_model(opts.model)
     use_cuda = torch.cuda.is_available() and not opts.no_cuda
-    device = torch.device("cuda:0" if use_cuda else "cpu")
-    results = []
-    graph_sizes = os.listdir(dataset_path)
-    padding = math.floor(math.log(np.max(
-        [len(os.listdir(os.path.join(dataset_path, g))) for g in graph_sizes]
-    ), 10)) + 1
-    for i, graph_size in enumerate(graph_sizes):
-        print('Graph size = {}'.format(graph_size))
-        path = os.path.join(dataset_path, graph_size)
-        dataset = ScenarioDataset(path, int(graph_size), padding)
-        results.append(_eval_dataset(model, dataset, width, softmax_temp, opts, device))
+    if opts.multiprocessing:
+        assert use_cuda, "Can only do multiprocessing with cuda"
+        num_processes = torch.cuda.device_count()
+        assert opts.val_size % num_processes == 0
+        with mp.Pool(num_processes) as pool:
+            results = list(itertools.chain.from_iterable(pool.map(
+                eval_dataset_mp,
+                [(dataset_path, width, softmax_temp, opts, i, num_processes) for i in range(num_processes)]
+            )))
+
+    else:
+        device = torch.device("cuda:0" if use_cuda else "cpu")
+        dataset = model.problem.make_dataset(filename=dataset_path, num_samples=opts.val_size, offset=opts.offset,
+                                             num_agents=opts.num_agents, num_depots=opts.num_depots)
+        results = _eval_dataset(model, dataset, width, softmax_temp, opts, device)
 
     # This is parallelism, even if we use multiprocessing (we report as if we did not use multiprocessing, e.g. 1 GPU)
     parallelism = opts.eval_batch_size
 
-    costs, tours, durations = tuple(), tuple(), tuple()  # Not really costs since they should be negative
-    for i, result in enumerate(results):
-        cost, tour, duration = zip(*result)
-        costs = costs + cost
-        tours = tours + tour
-        durations = durations + duration
-        if len(graph_sizes) > 1:
-            print('\nGraph size = {}'.format(graph_sizes[i]))
-            print("Average cost: {} +- {}".format(np.mean(cost), 2 * np.std(cost) / np.sqrt(len(cost))))
-            print('Min cost: {} | Max cost: {}'.format(np.min(cost), np.max(cost)))
-            print("Average serial duration: {} +- {}".format(
-                np.mean(duration), 2 * np.std(duration) / np.sqrt(len(duration))))
-            print("Average parallel duration: {}".format(np.mean(duration) / parallelism))
-            print("Calculated total duration: {} | ({:.4f} seconds) "
-                  .format(timedelta(seconds=int(np.sum(duration) / parallelism)), np.sum(duration) / parallelism))
-            nodes = []
-            for j in range(len(tour)):
-                nodes.append(len(tour[j]))
-            print(
-                'Average number of nodes visited: {} +- {}'.format(np.mean(nodes),
-                                                                   2 * np.std(nodes) / np.sqrt(len(nodes))))
-
-    print('\nResults')
-    print("Average cost: {} +- {}".format(np.mean(costs), 2 * np.std(costs) / np.sqrt(len(costs))))
+    costs, tours, durations = zip(*results)  # Not really costs since they should be negative
+    print("Average cost: {:.4f} +- {:.4f}".format(np.mean(costs), 2 * np.std(costs) / np.sqrt(len(costs))))
     print('Min cost: {} | Max cost: {}'.format(np.min(costs), np.max(costs)))
     print("Average serial duration: {} +- {}".format(
-        np.mean(durations), 2 * np.std(durations) / np.sqrt(len(durations))))
-    print("Average parallel duration: {}".format(np.mean(durations) / parallelism))
-    print("Calculated total duration: {} | ({:.4f} seconds) "
-          .format(timedelta(seconds=int(np.sum(durations) / parallelism)), np.sum(durations) / parallelism))
-    nodes = []
-    for j in range(len(tours)):
-        nodes.append(len(tours[j]))
-    print('Average number of nodes visited: {} +- {}'.format(np.mean(nodes), 2 * np.std(nodes) / np.sqrt(len(nodes))))
+        np.mean(durations),
+        2 * np.std(durations) / np.sqrt(len(durations))
+    ))
+    print("Average parallel duration: {} +- {}".format(
+        np.mean(durations) / parallelism,
+        2 * np.std(durations) / np.sqrt(len(durations)) / parallelism
+    ))
+    print("Calculated total duration: {} | ({:.4f} seconds) ".format(
+        timedelta(seconds=int(np.sum(durations) / parallelism)),
+        np.sum(durations) / parallelism
+    ))
+    nodes = [len(tours[i]) for i in range(len(tours))]
+    print('Average number of nodes visited: {:.4f} +- {:.4f}'.format(
+        np.mean(nodes),
+        2 * np.std(nodes) / np.sqrt(len(nodes))
+    ))
 
-    dataset_basename, ext = os.path.splitext(os.path.split(dataset_path)[-1])
-    model_name = args['model'] + '_' + "_".join(os.path.normpath(os.path.splitext(opts.model)[0]).split(os.sep)[-2:])
+    dataset_basename, ext = os.path.splitext(dataset_path.replace('/', '_'))
+    model_name = os.path.join(args['model'],
+                              "_".join(os.path.normpath(os.path.splitext(opts.model)[0]).split(os.sep)[-2:]))
     if opts.o is None:
-        r = "" if opts.ratio == '1:1' else "_{}".format(opts.ratio.replace(':', 'r'))
-        results_dir = os.path.join(opts.results_dir, model.problem.NAME + r, dataset_basename)
+        results_dir = os.path.join(opts.results_dir, opts.problem, dataset_basename)
         os.makedirs(results_dir, exist_ok=True)
-
-        out_file = os.path.join(results_dir, "{}-{}-{}{}-t{}-{}-{}{}".format(
-            dataset_basename, model_name,
+        out_file = os.path.join(results_dir, "{}-{}{}-t{}-{}-{}{}".format(
+            model_name,
             opts.decode_strategy,
             width if opts.decode_strategy != 'greedy' else '',
             softmax_temp, opts.offset, opts.offset + len(costs), ext
@@ -109,11 +111,9 @@ def eval_dataset(dataset_path, width, softmax_temp, opts):
     else:
         out_file = opts.o
 
-    assert opts.f or not os.path.isfile(
-        out_file), "File already exists! Try running with -f option to overwrite."
+    assert opts.f or not os.path.isfile(out_file), "File already exists! Try running with -f option to overwrite."
 
     save_dataset((results, parallelism), out_file)
-
     return costs, tours, durations
 
 
@@ -125,7 +125,6 @@ def _eval_dataset(model, dataset, width, softmax_temp, opts, device):
     model.set_decode_type(
         "greedy" if opts.decode_strategy in ('bs', 'greedy') else "sampling",
         temp=softmax_temp)
-    model.set_aspect_ratio(opts.ratio)
     model.num_depots = opts.num_depots
 
     dataloader = DataLoader(dataset, batch_size=opts.eval_batch_size)
@@ -216,12 +215,12 @@ if __name__ == "__main__":
     parser.add_argument('--no_progress_bar', action='store_true', help='Disable progress bar')
     parser.add_argument('--compress_mask', action='store_true', help='Compress mask into long')
     parser.add_argument('--max_calc_batch_size', type=int, default=10000, help='Size for subbatches')
+    parser.add_argument('--multiprocessing', action='store_true', help='Use multiproc to parallelize over multi-GPUs')
     parser.add_argument('--results_dir', default='results', help="Name of results directory")
-    parser.add_argument('--num_agents', type=int, default=4, help="Number of agents")
+    parser.add_argument('--num_agents', type=int, default=2, help="Number of agents")
     parser.add_argument('--num_depots', type=int, default=1, help="Number of depots. Options are 1 or 2. num_depots=1"
-                        "means that the start and end depot are the same. num_depots=2 means that they are different")  # 2 depots is only supported for Attention on OP
-    parser.add_argument('--ratio', type=str, default='1:1', help="Normalization ratio of the coordinates. Default 1:1")
-
+                        "means that the start and end depot are the same. num_depots=2 means that they are different")
+    parser.add_argument('--problem', default='op', help="The problem to solve. Options: op, tsp, pctsp, vrp, top")
     opts = parser.parse_args()
 
     assert opts.o is None or (len(opts.datasets) == 1 and len(opts.width) <= 1), \

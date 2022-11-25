@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from scipy.stats import ttest_rel
 import copy
-from train import rollout, get_inner_model
+from utils.train import rollout, get_inner_model
 
 
 class Baseline(object):
@@ -149,17 +149,13 @@ class RolloutBaseline(Baseline):
         self.problem = problem
         self.opts = opts
 
-        self._update_model(model, epoch, dataset=opts.rollout_dataset)
+        self._update_model(model, epoch)
 
     def _update_model(self, model, epoch, dataset=None):
         self.model = copy.deepcopy(model)
         # Always generate baseline dataset when updating model to prevent overfitting to the baseline dataset
 
         if dataset is not None:
-            dataset = self.problem.make_dataset(size=self.opts.graph_size, filename=self.opts.rollout_dataset,
-                                                num_agents=self.opts.num_agents, num_depots=self.opts.num_depots,
-                                                num_samples=self.opts.val_size, ratio=self.opts.ratio,
-                                                distribution=self.opts.data_distribution)
             if len(dataset) != self.opts.val_size:
                 print("Warning: not using saved baseline dataset since val_size does not match")
                 dataset = None
@@ -170,8 +166,9 @@ class RolloutBaseline(Baseline):
         if dataset is None:
             print('Baseline dataset:')
             self.dataset = self.problem.make_dataset(size=self.opts.graph_size, num_samples=self.opts.val_size,
-                                                     distribution=self.opts.data_distribution, ratio=self.opts.ratio,
-                                                     num_agents=self.opts.num_agents, num_depots=self.opts.num_depots)
+                                                     distribution=self.opts.data_dist,  num_agents=self.opts.num_agents,
+                                                     num_depots=self.opts.num_depots, max_length=self.opts.max_length,
+                                                     cluster=self.opts.cluster)
         else:
             self.dataset = dataset
         print("Evaluating baseline model on evaluation dataset")
