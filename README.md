@@ -19,30 +19,30 @@ Node (OP-MP-TN) with a cooperative multi-agent system based on Transformer Netwo
 * [tensorboard_logger](https://github.com/TeamHG-Memex/tensorboard_logger)
 * Matplotlib
 * [k-means-constrained](https://joshlk.github.io/k-means-constrained/)
+* fuzzy-c-means
+* scikit-learn
 
 ## Usage
 
 First, it is necessary to create training, testing, and validation sets:
 ```bash
-python create_dataset.py --graph_sizes 20 --train_sizes 1280000 --test_sizes 10000 --val_sizes 10000
+python create_dataset.py --name train --seed 1111 --graph_sizes 20 --train_sizes 1280000 --test_sizes 10000 --val_sizes 10000 --cluster km --num_agents 2 --max_length 2
 ```
+Note that the option `--cluster` defines the type of clustering for the initial planning: K-Means(`km`), K-Means
+constrained(`kmc`), or Fuzzy C-Means(`fcm`). The option `--num_agents` defines the number of agents/clusters. The option
+`max_length` indicates the normalized time limit to solve the problem.
 
-Datasets with multiple sizes can be created with:
+To train a Transformer model (`attention`) use:
 ```bash
-python create_dataset.py --graph_sizes 20 50 --train_sizes 640000 640000 --test_sizes 5000 5000 --val_sizes 5000 5000
+python run.py --model attention --graph_size 20 --max_length 2 --num_agents 2 --cluster km --data_dist coop --baseline rollout --train_dataset data/op/1depots/2agents/coop/km/20/train_seed1111_L2.pkl --val_dataset data/op/1depots/2agents/coop/km/20/val_seed4321_L2.pkl
 ```
 
-To train a Transformer model(attention) use:
-```bash
-python run.py --model attention --graph_size 20 --train_dataset --train_dataset datasets/op/coop/4agents/1depots/20_seed1234/train --val_dataset datasets/op/coop/4agents/1depots/20_seed1234/val
-```
-
-Pointer Network (pointer) and Graph Pointer Network (gpn) can also be trained with the `--model` option. To resume
+Pointer Network (`pointer`) and Graph Pointer Network (`gpn`) can also be trained with the `--model` option. To resume
 training, load your last saved model with the `--resume` option.
 
 Evaluate your trained models with:
 ```bash
-python eval.py --model outputs/op_coop20/attention_run --test_dataset datasets/op/coop/4agents/1depots/20_seed1234/test/20/data.pkl
+python eval.py --model outputs/op_coop20/attention_run... --num_agents 2 --test_dataset data/op/1depots/2agents/coop/km/20/test_seed1234_L2.pkl
 ```
 If the epoch is not specified, by default the last one in the folder will be used.
 
@@ -51,7 +51,7 @@ Baselines like [OR-Tools](https://developers.google.com/optimization), [Gurobi](
 [Compass](https://github.com/bcamath-ds/compass) or a [Genetic Algorithm](https://github.com/mc-ride/orienteering) can
 be executed as follows:
 ```bash
-python -m problems.op.op_baseline --method ortools --datasets datasets/op/coop/4agents/1depots/20_seed1234/test/20/data.pkl
+python -m problems.op.op_baseline --method ortools --multiprocessing True --datasets data/op/1depots/2agents/coop/km/20/test_seed1234_L2.pkl
 ```
 To run Compass, you need to install it by running the `install_compass.sh` script from within the `problems/op`
 directory. To use Gurobi, obtain a ([free academic](http://www.gurobi.com/registration/academic-license-reg)) license
@@ -61,18 +61,20 @@ and follow the
 
 Finally, you can visualize an example of executions using:
 ```bash
-python test_plot.py --graph_size 20 --load_path outputs/op_coop20/attention_run
+python test_plot.py --graph_size 20 --num_agents 2 --data_dist coop --load_path outputs/op_coop20/attention_run... --test_coop True
 ```
 
 Use the `--baseline` option to visualize the prediction of one of the baselines mentioned before:
 ```bash
-python test_plot.py --graph_size 20 --baseline ortools
+python test_plot.py --graph_size 20 --num_agents 2 --data_dist coop --baseline ortools --test_coop True
 ```
 
 ### Other options and help
 ```bash
 python run.py -h
 python eval.py -h
+python -m problems.op.op_baseline -h
+python test_plot.py -h
 ```
 
 ## Acknowledgements

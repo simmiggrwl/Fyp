@@ -77,6 +77,7 @@ def eval_dataset(dataset_path, width, softmax_temp, opts):
 
     costs, tours, durations = zip(*results)  # Not really costs since they should be negative
     print("Average cost: {:.4f} +- {:.4f}".format(np.mean(costs), 2 * np.std(costs) / np.sqrt(len(costs))))
+    # print("Average cost: {:.4f} +- {:.4f}".format(np.mean(opts.num_agents*np.array(costs)), 2 * np.std(opts.num_agents*np.array(costs)) / np.sqrt(len(opts.num_agents*np.array(costs)))))
     print('Min cost: {} | Max cost: {}'.format(np.min(costs), np.max(costs)))
     print("Average serial duration: {} +- {}".format(
         np.mean(durations),
@@ -95,6 +96,10 @@ def eval_dataset(dataset_path, width, softmax_temp, opts):
         np.mean(nodes),
         2 * np.std(nodes) / np.sqrt(len(nodes))
     ))
+    # print('Average number of nodes visited: {:.4f} +- {:.4f}'.format(
+    #         np.mean(opts.num_agents*np.array(nodes)),
+    #         2 * np.std(opts.num_agents*np.array(nodes)) / np.sqrt(len(opts.num_agents*np.array(nodes)))
+    # ))
 
     dataset_basename, ext = os.path.splitext(dataset_path.replace('/', '_'))
     model_name = os.path.join(args['model'],

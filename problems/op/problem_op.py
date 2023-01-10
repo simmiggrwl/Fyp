@@ -217,7 +217,7 @@ class OPDatasetLarge(Dataset):
         self.filename = filename
 
         print('Loading dataset...')
-        self.size = len(os.listdir(filename)) // 10
+        self.size = len(os.listdir(filename))
 
     def __len__(self):
         return self.size
