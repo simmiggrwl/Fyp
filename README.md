@@ -26,7 +26,9 @@ Node (OP-MP-TN) with a cooperative multi-agent system based on Transformer Netwo
 
 First, it is necessary to create training, testing, and validation sets:
 ```bash
-python create_dataset.py --name train --seed 1111 --graph_sizes 20 --train_sizes 1280000 --test_sizes 10000 --val_sizes 10000 --cluster km --num_agents 2 --max_length 2
+python create_dataset.py --name train --seed 1111 --graph_sizes 20 --dataset_sizes 1280000 --cluster km --num_agents 2 --max_length 2
+python create_dataset.py --name test --seed 1234 --graph_sizes 20 --dataset_sizes 10000 --cluster km --num_agents 2 --max_length 2
+python create_dataset.py --name val --seed 4321 --graph_sizes 20 --dataset_sizes 10000 --cluster km --num_agents 2 --max_length 2
 ```
 Note that the option `--cluster` defines the type of clustering for the initial planning: K-Means(`km`), K-Means
 constrained(`kmc`), or Fuzzy C-Means(`fcm`). The option `--num_agents` defines the number of agents/clusters. The option
