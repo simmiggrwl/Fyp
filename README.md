@@ -6,7 +6,19 @@ Node (OP-MP-TN) with a cooperative multi-agent system based on Transformer Netwo
 [paper](). If this repository is useful for your work, please cite our paper:
 
 ```
-
+@article{FUERTES2023106085,
+    title = {Solving routing problems for multiple cooperative Unmanned Aerial Vehicles using Transformer networks},
+    journal = {Engineering Applications of Artificial Intelligence},
+    volume = {122},
+    pages = {106085},
+    year = {2023},
+    issn = {0952-1976},
+    doi = {https://doi.org/10.1016/j.engappai.2023.106085},
+    url = {https://www.sciencedirect.com/science/article/pii/S0952197623002695},
+    author = {Daniel Fuertes and Carlos R. del-Blanco and Fernando Jaureguizar and Juan José Navarro and Narciso García},
+    keywords = {Unmanned Aerial Vehicle, Orienteering problem, Deep reinforcement learning, Attention model, Shared regions},
+    abstract = {Missions involving Unmanned Aerial Vehicle usually consist of reaching a set of regions, performing some actions in each region, and returning to a determined depot after all the regions have been successfully visited or before the fuel/battery is totally consumed. Hence, planning a route becomes an important task for many applications, especially if a team of Unmanned Aerial Vehicles is considered. From this team, coordination and cooperation are expected to optimize results of the mission. In this paper, a system for managing multiple cooperative Unmanned Aerial Vehicles is presented. This system divides the routing problem into two stages: initial planning and routing solving. Initial planning is a first step where the regions to be visited are grouped in multiple clusters according to a distance criterion, with each cluster being assigned to each of the Unmanned Aerial Vehicles. Routing solving computes the best route for every agent considering the clusters of the initial planning and a variant of the Orienteering Problem. This variant introduces the concept of shared regions, allowing an Unmanned Aerial Vehicle to visit regions from other clusters and compensating for the suboptimal region clustering of the previous stage. The Orienteering Problem with shared regions is solved using the deep learning architecture Transformer along with a deep reinforcement learning framework. This architecture is able to obtain high-quality solutions much faster than conventional optimization approaches. Extensive results and comparison with other Combinatorial Optimization algorithms, including cooperative and non-cooperative scenarios, have been performed to show the benefits of the proposed solution.}
+}
 ``` 
 
 ## Dependencies
@@ -44,7 +56,7 @@ training, load your last saved model with the `--resume` option.
 
 Evaluate your trained models with:
 ```bash
-python eval.py --model outputs/op_coop20/attention_run... --num_agents 2 --test_dataset data/op/1depots/2agents/coop/km/20/test_seed1234_L2.pkl
+python eval.py data/op/1depots/2agents/coop/km/20/test_seed1234_L2.pkl --model outputs/op_coop20/attention_run... --num_agents 2
 ```
 If the epoch is not specified, by default the last one in the folder will be used.
 
