@@ -3,7 +3,7 @@
 ## Paper
 Solving a variant of the Orieentering Problem (OP) called the Orienteering Problem with Multiple Prizes and Types of
 Node (OP-MP-TN) with a cooperative multi-agent system based on Transformer Networks. For more details, please see our
-[paper](). If this repository is useful for your work, please cite our paper:
+[paper](https://doi.org/10.1016/j.engappai.2023.106085). If this repository is useful for your work, please cite our paper:
 
 ```
 @article{FUERTES2023106085,
