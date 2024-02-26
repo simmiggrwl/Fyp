@@ -2,6 +2,7 @@ import os
 import math
 import argparse
 import numpy as np
+import random
 from utils.data_utils import save_dataset, set_seed
 from k_means_constrained import KMeansConstrained
 from sklearn.cluster import KMeans
@@ -69,6 +70,16 @@ def generate_op_data(dataset_size, op_size, max_length, prize_type='const', num_
         assert prize_type == 'dist'
         prize_ = np.linalg.norm(depot[:, None, :] - loc, axis=-1)
         prize = (1 + (prize_ / prize_.max(axis=-1, keepdims=True) * 99).astype(int)) / 100.
+
+    # Calculate 20% of the length of the list
+    twenty_percent = int(len(prize) * 0.2)
+
+    # Randomly select 10% of the elements
+    indices_to_negate = random.sample(range(len(prize)), twenty_percent)
+
+    # Negate the selected elements
+    for index in indices_to_negate:
+        prize[index] = -100
 
     # End depot is different from start depot
     if num_depots == 2:

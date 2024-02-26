@@ -43,7 +43,7 @@ def get_options(args=None):
                         "using tanh. Set to 0 to not perform any clipping.")
 
     # Training
-    parser.add_argument('--num_workers', type=int, default=16, help="Number of parallel workers loading data batches")
+    parser.add_argument('--num_workers', type=int, default=8, help="Number of parallel workers loading data batches")
     parser.add_argument('--epochs', type=int, default=100, help="The number of epochs to train")
     parser.add_argument('--initial_epoch', type=int, default=0, help="Initial epoch (relevant for learning rate decay)")
     parser.add_argument('--lr_model', type=float, default=1e-4, help="Set the learning rate for the actor network")

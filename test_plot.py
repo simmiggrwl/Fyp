@@ -293,6 +293,7 @@ def plot_multitour(num_agents, tours, inputs, problem, model_name, data_dist='',
     colors = assign_colors(num_agents + 2)
     color_shared = np.array(colors[-2]).reshape(1, -1)
     color_depot = np.array(colors[-1]).reshape(1, -1)
+    # color_obstacles = rgb(255,0,0)
 
     length_sum, prize_sum, prize_max = 0, 0, 0
     for agent in range(num_agents):
@@ -335,6 +336,7 @@ def plot_multitour(num_agents, tours, inputs, problem, model_name, data_dist='',
             plt.scatter(depot2[0], depot2[1], s=200, c=color_depot, marker='v', label='Depot')
         plt.scatter(loc[prize == 1][..., 0], loc[prize == 1][..., 1], c=color, label='Initial')
         plt.scatter(loc[prize != 1][..., 0], loc[prize != 1][..., 1], c=color_shared, label='Shared')
+        plt.scatter(loc[prize == -100][..., 0], loc[prize == -100][..., 1], c='red', label='Obstacle')
         for l in range(len(loc)):
             plt.text(loc[l, 0] + .005, loc[l, 1] + .005, str(l + 1))
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.9))
