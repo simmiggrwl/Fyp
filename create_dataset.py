@@ -71,15 +71,10 @@ def generate_op_data(dataset_size, op_size, max_length, prize_type='const', num_
         prize_ = np.linalg.norm(depot[:, None, :] - loc, axis=-1)
         prize = (1 + (prize_ / prize_.max(axis=-1, keepdims=True) * 99).astype(int)) / 100.
 
-    # Calculate 20% of the length of the list
-    twenty_percent = int(len(prize) * 0.2)
-
-    # Randomly select 10% of the elements
-    indices_to_negate = random.sample(range(len(prize)), twenty_percent)
-
-    # Negate the selected elements
-    for index in indices_to_negate:
-        prize[index] = -100
+    # Introduce negative prize for 20% of nodes
+    num_neg_prize_nodes = int(0.2 * op_size)
+    indices = np.random.choice(op_size, num_neg_prize_nodes, replace=False)
+    prize[:, indices] = -100
 
     # End depot is different from start depot
     if num_depots == 2:
