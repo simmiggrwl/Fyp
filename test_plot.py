@@ -309,6 +309,7 @@ def plot_multitour(num_agents, tours, inputs, problem, model_name, data_dist='',
         loc = inputs[agent]['loc']
         prize = inputs[agent]['prize']
         depot = inputs[agent]['depot']
+        obstacle = inputs[agent]['obstacle']
         if num_depots > 1:
             depot2 = inputs[agent]['depot2']
         max_length = inputs[agent]['max_length']
@@ -334,14 +335,12 @@ def plot_multitour(num_agents, tours, inputs, problem, model_name, data_dist='',
         if num_depots > 1:
             plt.scatter(depot2[0], depot2[1], s=200, c=color_depot, marker='v', label='Depot')
         
-        print(prize)
-        # non_unit_prize_indices = (prize == 0.79)
-        # plt.scatter(loc[non_unit_prize_indices][:, 0], loc[non_unit_prize_indices][:, 1], c=color_shared, label='Shared')
-        # plt.scatter(loc[prize == 0.5][..., 0], loc[prize ==0.5][..., 1], c='red', label='Obstacle')
+        non_unit_non_obstacle_prize_indices = (prize !=1) and (obstacle==0)
+        unit_non_obstacle_prize_indices = (prize == 1) and (obstacle==0)
+        plt.scatter(loc[unit_non_obstacle_prize_indices][..., 0], loc[unit_non_obstacle_prize_indices][..., 1], c=color, label='Initial')
+        plt.scatter(loc[non_unit_non_obstacle_prize_indices][..., 0], loc[non_unit_non_obstacle_prize_indices][..., 1], c=color_shared, label='Shared')
+        plt.scatter(loc[obstacle == 1][..., 0], loc[obstacle == 1][..., 1], c='red', label='Obstacle')
         
-        plt.scatter(loc[prize == 1][..., 0], loc[prize == 1][..., 1], c=color, label='Initial')
-        plt.scatter(loc[prize != 1][..., 0], loc[prize != 1][..., 1], c=color_shared, label='Shared')
-        plt.scatter(loc[prize == -100][..., 0], loc[prize == -100][..., 1], c='red', label='Obstacle')
         for l in range(len(loc)):
             plt.text(loc[l, 0] + .005, loc[l, 1] + .005, str(l + 1))
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.9))

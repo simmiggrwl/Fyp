@@ -71,10 +71,11 @@ def generate_op_data(dataset_size, op_size, max_length, prize_type='const', num_
         prize_ = np.linalg.norm(depot[:, None, :] - loc, axis=-1)
         prize = (1 + (prize_ / prize_.max(axis=-1, keepdims=True) * 99).astype(int)) / 100.
 
-    # Introduce negative prize for 20% of nodes
-    num_neg_prize_nodes = int(0.2 * op_size)
-    indices = np.random.choice(op_size, num_neg_prize_nodes, replace=False)
-    prize[:, indices] = -100
+
+    obstacle = np.zeros((dataset_size, op_size))
+    num_obstacle_nodes = int(0.2 * op_size)
+    indices = np.random.choice(op_size, num_obstacle_nodes, replace=False)
+    obstacle[:, indices] = 1
 
     # End depot is different from start depot
     if num_depots == 2:
@@ -84,6 +85,7 @@ def generate_op_data(dataset_size, op_size, max_length, prize_type='const', num_
             loc.tolist(),
             prize.tolist(),
             np.full(dataset_size, max_length).tolist(),  # Capacity, same for whole dataset
+            obstacle.tolist(),
             depot2.tolist()
         ))
 
@@ -91,7 +93,8 @@ def generate_op_data(dataset_size, op_size, max_length, prize_type='const', num_
         depot.tolist(),
         loc.tolist(),
         prize.tolist(),
-        np.full(dataset_size, max_length).tolist()  # Capacity, same for whole dataset
+        np.full(dataset_size, max_length).tolist(),  # Capacity, same for whole dataset
+        obstacle.tolist()
     ))
 
 

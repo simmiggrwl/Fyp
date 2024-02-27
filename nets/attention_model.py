@@ -93,8 +93,10 @@ class AttentionModel(nn.Module):
             # Node dimension
             if self.is_pctsp:
                 node_dim = 4  # x, y, expected_prize, penalty
+            elif self.is_op:
+                node_dim = 4 # x,y, prize, obstacle
             else:
-                node_dim = 3  # x, y, demand (VRP) / prize (OP)
+                node_dim = 3  # x, y, demand (VRP) 
 
             # Special embedding projection for depot node
             self.init_embed_depot = nn.Linear(2, embedding_dim)
@@ -219,10 +221,12 @@ class AttentionModel(nn.Module):
 
         # VRP, OP or PCTSP
         if self.is_vrp or self.is_op or self.is_pctsp:
+            print(input['obstacle'])
+
             if self.is_vrp:
                 features = ('demand', )
             elif self.is_op:
-                features = ('prize', )
+                features = ('prize', 'obstacle')
             else:
                 assert self.is_pctsp
                 features = ('deterministic_prize', 'penalty')
