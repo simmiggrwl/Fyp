@@ -2,7 +2,6 @@ import os
 import torch
 import pickle
 import numpy as np
-import random
 from tqdm import tqdm
 from fcmeans import FCM
 from sklearn.cluster import KMeans
@@ -88,11 +87,17 @@ class OP(object):
 
         return beam_search(state, beam_size, propose_expansions)
 
-
 def generate_instance(size, prize_type, num_agents=1, num_depots=1, max_length=2, cluster='kmc', test_coop=False):
     loc = torch.FloatTensor(size, 2).uniform_(0, 1)
     depot = torch.FloatTensor(2).uniform_(0, 1)
 
+    # Initialize obstacle tensor
+    obstacle = torch.zeros((size,))
+    num_obstacles = int(0.2 * size)
+    obstacles_indices = np.random.choice(size, size=num_obstacles, replace=False)
+    for idx in obstacles_indices:
+        obstacle[idx] = 1
+    
     # Methods taken from Fischetti et al. 1998
     if prize_type == 'const':
         prize = torch.ones(size)
@@ -118,20 +123,14 @@ def generate_instance(size, prize_type, num_agents=1, num_depots=1, max_length=2
             fcm.fit(loc)
             labels = fcm.predict(loc)
 
-        # print(size)
-        obstacle = torch.zeros(size,)
-        num_obstacles= int(0.2*size)
-        obstacles_indices=random.sample(range(int(size)), num_obstacles)
-        for idx in obstacles_indices:
-            obstacle[idx] = 1
-
         # Return data
         if test_coop:
             agents = {}
             for i in range(num_agents):
                 prize = torch.ones(labels.shape)
                 prize[labels != i] = 0.5 if prize_type == 'coop' else 0
-                agents[i] = {'loc': loc, 'prize': prize, 'depot': depot, 'obstacle':obstacle, 'max_length': torch.tensor(max_length)}
+                agents[i] = {'loc': loc, 'prize': prize, 'depot': depot, 'obstacle': obstacle,
+                             'max_length': torch.tensor(max_length)}
             return agents
         else:
             prize = torch.ones(labels.shape)
@@ -175,9 +174,9 @@ class OPDataset(Dataset):
                         'prize': torch.FloatTensor(prize),
                         'depot': torch.FloatTensor(depot),
                         'obstacle': torch.FloatTensor(obstacle),
-                        'max_length': torch.tensor(length)
+                        'max_length': torch.tensor(max_length)
                     }
-                    for depot, loc, prize, obstacle, length in tqdm(data[offset:offset + num_samples])
+                    for depot, loc, prize, obstacle, max_length in tqdm(data[offset:offset + num_samples])
                 ]
             else:
                 assert num_depots == 2, 'Number of depots has to be either 1 or 2.'
@@ -240,7 +239,7 @@ class OPDatasetLarge(Dataset):
                         'prize': torch.FloatTensor(data[2]),
                         'depot': torch.FloatTensor(data[0]),
                         'max_length': torch.tensor(data[3]),
-                        'obstacle': torch.tensor(data[4])
+                        'obstacle': torch.FloatTensor(data[4])
                     }
         else:
             return {
@@ -248,6 +247,6 @@ class OPDatasetLarge(Dataset):
                         'prize': torch.FloatTensor(data[2]),
                         'depot': torch.FloatTensor(data[0]),
                         'max_length': torch.tensor(data[3]),
-                        'obstacle': torch.tensor(data[4]),
+                        'obstacle': torch.FloatTensor(data[4]),
                         'depot2': torch.FloatTensor(data[5])
                     }

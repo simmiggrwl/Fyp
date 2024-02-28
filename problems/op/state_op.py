@@ -8,6 +8,7 @@ class StateOP(NamedTuple):
     # Fixed input
     coords: torch.Tensor  # Depot + loc
     prize: torch.Tensor
+    obstacle: torch.Tensor
     # Max length is not a single value, but one for each node indicating max length tour should have when arriving
     # at this node, so this is max_length - d(depot, node)
     max_length: torch.Tensor
@@ -56,6 +57,8 @@ class StateOP(NamedTuple):
         depot = input['depot']
         loc = input['loc']
         prize = input['prize']
+        obstacle = input['obstacle']
+        obstacle = F.pad(prize, (1, 0), mode='constant', value=0)  # add 0 for depot
         prize = F.pad(prize, (1, 0), mode='constant', value=0)  # add 0 for depot
         max_length = input['max_length']
         is_depot2 = 'depot2' in input
@@ -69,6 +72,7 @@ class StateOP(NamedTuple):
         return StateOP(
             coords=coords,
             prize=torch.cat((prize, torch.zeros((batch_size, 1), device=loc.device)), dim=1) if is_depot2 else prize,
+            obstacle=torch.cat((obstacle, torch.zeros((batch_size, 1), device=loc.device)), dim=1) if is_depot2 else obstacle,
             # max_length is max length allowed when arriving at node, so subtract distance to return to depot
             # Additionally, substract epsilon margin for numeric stability
             max_length=max_length[:, None] - (depot2[:, None, :] - coords).norm(p=2, dim=-1) - 1e-6 if is_depot2 else

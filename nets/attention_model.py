@@ -221,7 +221,6 @@ class AttentionModel(nn.Module):
 
         # VRP, OP or PCTSP
         if self.is_vrp or self.is_op or self.is_pctsp:
-            print(input['obstacle'])
 
             if self.is_vrp:
                 features = ('demand', )
